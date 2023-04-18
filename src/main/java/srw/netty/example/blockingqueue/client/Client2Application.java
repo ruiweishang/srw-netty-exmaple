@@ -10,6 +10,8 @@ import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.Promise;
+import srw.netty.example.blockingqueue.enums.CommandEnum;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -50,7 +52,7 @@ public class Client2Application {
             Channel ch = f.channel();
             System.out.println("Enter commands (quit to end)");
 
-            ChannelFuture lastWriteFuture = null;
+            ClientBlockingQueue clientBlockingQueue = new ClientBlockingQueue(ch);
             BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
             for (; ; ) {
                 final String input = in.readLine();
@@ -61,25 +63,31 @@ public class Client2Application {
                 } else if (line.isEmpty()) { // skip `enter` or `enter` with spaces.
                     continue;
                 }
-                // Sends the received line to the server.
-                lastWriteFuture = ch.writeAndFlush(line);
-                lastWriteFuture.addListener(new GenericFutureListener<ChannelFuture>() {
-                    @Override
-                    public void operationComplete(ChannelFuture future) throws Exception {
-                        if (!future.isSuccess()) {
-                            System.err.print("write failed: ");
-                            future.cause().printStackTrace(System.err);
-                        }
-                    }
-                });
 
-                // 阻塞当前线程
-                lastWriteFuture.sync();
-            }
-
-            // Wait until all messages are flushed before closing the channel.
-            if (lastWriteFuture != null) {
-                lastWriteFuture.sync();
+                String command = "";
+                String element = "";
+                int i = line.indexOf(' ');
+                if (i > 0) {
+                    command = line.substring(0, i);
+                    element = line.substring(i + 1);
+                } else {
+                    command = line;
+                }
+                CommandEnum commandEnum = CommandEnum.getByCode(command);
+                if (commandEnum == null) {
+                    System.out.println("不支持此命令，请重新输入");
+                    continue;
+                }
+                switch (commandEnum) {
+                    case OFFER:
+                        clientBlockingQueue.offer(element);
+                        break;
+                    case POLL:
+                        Promise<String> promise = clientBlockingQueue.poll();
+                        // 阻塞时poll
+                        System.out.println(promise.sync().get());
+                        break;
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();

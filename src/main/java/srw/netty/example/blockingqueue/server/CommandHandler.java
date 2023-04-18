@@ -69,7 +69,7 @@ public class CommandHandler {
             }
             if (tempPollAwaitCtx.size() > 0) {
                 for (ChannelHandlerContext awaitCtx : tempPollAwaitCtx) {
-                    awaitCtx.channel().writeAndFlush(new Result(-1, null));
+                    awaitCtx.channel().writeAndFlush(new Result(0, item));
                 }
             }
         }
